@@ -1,0 +1,8 @@
+/.github export-ignore
+/tests export-ignore
+/docs export-ignore
+/.dev-tools.yaml.dist export-ignore
+/.gitignore export-ignore
+/.gitattributes export-ignore
+/CHANGELOG.md export-ignore
+/CONTRIBUTING.md export-ignore

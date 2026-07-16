@@ -1,0 +1,31 @@
+{
+    "name": "dev-tools/dev-tools",
+    "description": "Shared PHP CS Fixer, PHPStan and Git hook commands for PHP projects",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "friendsofphp/php-cs-fixer": "^3.86",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "symfony/yaml": "^6.4 || ^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "DevTools\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/dev-tools"
+    ],
+    "scripts": {
+        "test": "tests/e2e.sh",
+        "test-e2e": [
+            "tests/e2e.sh"
+        ],
+        "test-docker-e2e": [
+            "tests/docker-e2e.sh"
+        ]
+    }
+}

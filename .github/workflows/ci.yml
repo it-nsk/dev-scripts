@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --strict
+      - run: composer install --no-interaction --no-progress
+      - name: PHP syntax
+        run: find src config -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse -c config/phpstan.neon src --no-progress
+      - name: PHP CS Fixer
+        env:
+          DEV_TOOLS_CONFIG: ${{ github.workspace }}/.dev-tools.yaml.dist
+          DEV_TOOLS_PROJECT_DIR: ${{ github.workspace }}
+        run: vendor/bin/php-cs-fixer fix --config=config/php-cs-fixer.php --dry-run --diff --using-cache=no
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: composer test
+
+  docker-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: composer test-docker-e2e

@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoload = $GLOBALS['_composer_autoload_path'] ?? dirname(__DIR__) . '/vendor/autoload.php';
+
+if (!is_file($autoload)) {
+    fwrite(STDERR, "Composer autoload file not found. Run composer install.\n");
+    exit(1);
+}
+
+require $autoload;
+
+exit((new DevTools\Cli(dirname(__DIR__)))->run($argv));

@@ -1,0 +1,10 @@
+cs_fixer:
+    mode: local
+    paths: [src]
+
+phpstan:
+    mode: local
+    paths: [src]
+
+hooks:
+    mode: local

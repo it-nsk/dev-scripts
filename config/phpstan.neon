@@ -1,0 +1,11 @@
+includes:
+    # currentWorkingDirectory keeps path repositories working when this package
+    # is symlinked outside the project's vendor directory.
+    - %currentWorkingDirectory%/vendor/phpstan/phpstan-doctrine/extension.neon
+    - %currentWorkingDirectory%/vendor/phpstan/phpstan-symfony/extension.neon
+
+parameters:
+    level: 5
+    tmpDir: %currentWorkingDirectory%/var/cache/phpstan
+    parallel:
+        maximumNumberOfProcesses: 1

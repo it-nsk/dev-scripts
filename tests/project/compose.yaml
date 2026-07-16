@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+    working_dir: /app
+    command: ["sleep", "infinity"]
+    volumes:
+      - .:/app
+    healthcheck:
+      test: ["CMD", "php", "-v"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
