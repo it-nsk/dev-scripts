@@ -27,11 +27,11 @@
         "test-docker-e2e": [
             "tests/docker-e2e.sh"
         ],
-        "test-dev-tools-global-e2e": [
-            "tests/dev-tools-global-e2e.sh"
+        "test-bgt-dev-e2e": [
+            "tests/bgt-dev-e2e.sh"
         ],
-        "test-dev-tools-global-docker-e2e": [
-            "tests/dev-tools-global-docker-e2e.sh"
+        "test-bgt-dev-docker-e2e": [
+            "tests/bgt-dev-docker-e2e.sh"
         ]
     }
 }

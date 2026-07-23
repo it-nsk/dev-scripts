@@ -14,7 +14,7 @@
 - установка local и Docker pre-commit hooks;
 - Makefile-интеграция;
 - local и Docker E2E-тесты.
-- глобальный `dev-tools` для Docker lifecycle и проектных команд;
+- глобальный `bgt-dev` для Docker lifecycle и проектных команд;
 - одноразовый установщик и команда `self-update`;
 - скачивание и импорт MySQL gzip dump;
 - E2E установки, обновления и импорта dump в чистый MySQL-контейнер.

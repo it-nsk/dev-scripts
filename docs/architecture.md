@@ -4,7 +4,7 @@
 
 - Composer-пакет `it-nsk/dev-tools` запускает PHP CS Fixer, PHPStan и
   устанавливает pre-commit hook;
-- глобальный POSIX-совместимый CLI `dev-tools` управляет первичным развёртыванием,
+- глобальный POSIX-совместимый CLI `bgt-dev` управляет первичным развёртыванием,
   Docker Compose и локальными дампами до появления `vendor`.
 
 Глобальный CLI не использует PHP и Composer, поэтому bootstrap не образует
@@ -14,9 +14,9 @@
 
 - `bin/dev-tools` — Composer binary. Подключает autoload и передаёт аргументы в
   `Cli`.
-- `bin/dev-tools-global` — исходник глобального shell CLI: Docker lifecycle, dump, длинные команды
+- `bin/bgt-dev` — глобальный shell CLI: Docker lifecycle, dump, длинные команды
   внутри контейнера и `self-update`.
-- `install.sh` — одноразовая установка `dev-tools` в `/usr/local/bin`.
+- `install.sh` — одноразовая установка `bgt-dev` в `/usr/local/bin`.
 - `src/Cli.php` — список доступных команд, разбор `--config`/`--mode`, поиск
   корня проекта и запуск нужного модуля. Чтобы добавить новую команду, нужно
   добавить её класс и одну ветку в `match`.
@@ -67,7 +67,7 @@ autoload и не выполняются у потребителя.
 
 ## База данных
 
-Composer-часть не подключается к БД. Глобальный `dev-tools` умеет скачать gzip
+Composer-часть не подключается к БД. Глобальный `bgt-dev` умеет скачать gzip
 dump по SSH и импортировать его в локальный MySQL-сервис Docker Compose.
 Источник, имя файла, сервис, база и реквизиты задаются переменными `BGT_*`
 проекта. В бинарнике нет адресов или названий конкретных проектов.
