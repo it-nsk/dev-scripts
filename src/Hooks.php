@@ -36,6 +36,10 @@ final readonly class Hooks
         $template = (string) file_get_contents($this->packageDir.'/hooks/pre-commit');
         $script   = str_replace('__COMMAND__', implode(' ', array_map(escapeshellarg(...), $command)), $template);
 
+        if ((is_file($target) || is_link($target)) && !unlink($target)) {
+            throw new \RuntimeException('Unable to replace existing Git pre-commit hook.');
+        }
+
         if (file_put_contents($target, $script) === false || !chmod($target, self::HOOK_PERMISSIONS)) {
             throw new \RuntimeException('Unable to install pre-commit hook.');
         }

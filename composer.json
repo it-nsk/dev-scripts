@@ -1,5 +1,5 @@
 {
-    "name": "dev-tools/dev-tools",
+    "name": "it-nsk/dev-tools",
     "description": "Shared PHP CS Fixer, PHPStan and Git hook commands for PHP projects",
     "type": "library",
     "license": "MIT",

@@ -25,11 +25,11 @@ git config user.email 'dev-tools@example.invalid'
 
 composer config repositories.dev-tools \
     "{\"type\":\"path\",\"url\":\"$root\",\"options\":{\"symlink\":false}}"
-composer require --dev dev-tools/dev-tools:@dev \
+composer require --dev it-nsk/dev-tools:@dev \
     --no-interaction --no-progress --no-audit --no-security-blocking
 
-test -d vendor/dev-tools/dev-tools
-test ! -L vendor/dev-tools/dev-tools
+test -d vendor/it-nsk/dev-tools
+test ! -L vendor/it-nsk/dev-tools
 docker compose -f compose.yaml build
 docker compose -f compose.yaml up -d --wait
 test -n "$(docker compose -f compose.yaml ps --status running -q app)"
