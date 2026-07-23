@@ -22,7 +22,7 @@
 ## Установка
 
 ```bash
-composer require --dev dev-tools/dev-tools
+composer require --dev it-nsk/dev-tools
 ```
 
 Создайте `.dev-tools.yaml`:
@@ -107,7 +107,7 @@ Hook копируется в `.git/hooks/pre-commit`, форматирует sta
 Подключите общие цели:
 
 ```make
--include vendor/dev-tools/dev-tools/make/dev-tools.mk
+-include vendor/it-nsk/dev-tools/make/dev-tools.mk
 ```
 
 Доступные команды:
@@ -140,7 +140,7 @@ phpstan:
 
 ```neon
 includes:
-    - vendor/dev-tools/dev-tools/config/phpstan.neon
+    - vendor/it-nsk/dev-tools/config/phpstan.neon
     - phpstan-baseline.neon
 ```
 

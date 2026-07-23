@@ -56,7 +56,7 @@ final readonly class CsFixer
         return [
             $this->config->string('cs_fixer.binary', 'vendor/bin/php-cs-fixer'),
             'fix',
-            '--config='.$this->config->string('cs_fixer.config', 'vendor/dev-tools/dev-tools/config/php-cs-fixer.php'),
+            '--config='.$this->config->string('cs_fixer.config', 'vendor/it-nsk/dev-tools/config/php-cs-fixer.php'),
         ];
     }
 

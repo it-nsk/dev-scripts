@@ -17,7 +17,7 @@ final readonly class PhpStan
         $projectConfig = $this->config->nullableString('phpstan.config');
         $configuration = $projectConfig ?? $this->config->string(
             'phpstan.default_config',
-            'vendor/dev-tools/dev-tools/config/phpstan.neon',
+            'vendor/it-nsk/dev-tools/config/phpstan.neon',
         );
         $command = [
             $this->config->string('phpstan.binary', 'vendor/bin/phpstan'),

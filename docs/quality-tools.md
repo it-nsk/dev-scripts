@@ -41,7 +41,7 @@ make cs-check-docker
 ```
 
 Общие правила находятся в
-`vendor/dev-tools/dev-tools/config/php-cs-fixer.php`. Пути и исключения задаются
+`vendor/it-nsk/dev-tools/config/php-cs-fixer.php`. Пути и исключения задаются
 через `cs_fixer.paths` и `cs_fixer.exclude`.
 
 На legacy-проекте сначала выполните `make cs-check`. Массовое форматирование
@@ -67,7 +67,7 @@ phpstan:
 
 ```neon
 includes:
-    - vendor/dev-tools/dev-tools/config/phpstan.neon
+    - vendor/it-nsk/dev-tools/config/phpstan.neon
     - phpstan-baseline.neon
 ```
 
@@ -107,13 +107,13 @@ git diff --cached
 ```bash
 composer config repositories.dev-tools \
   '{"type":"path","url":"../dev-scripts","options":{"symlink":true}}'
-composer require --dev dev-tools/dev-tools:@dev
+composer require --dev it-nsk/dev-tools:@dev
 ```
 
 Проверьте подключение:
 
 ```bash
-readlink -f vendor/dev-tools/dev-tools
+readlink -f vendor/it-nsk/dev-tools
 vendor/bin/dev-tools help
 make cs-check
 make phpstan
