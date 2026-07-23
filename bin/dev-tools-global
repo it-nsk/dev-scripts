@@ -1,0 +1,298 @@
+#!/bin/sh
+
+set -eu
+
+DEV_TOOLS_VERSION='0.2.0'
+DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/dev-tools-global'
+
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+has() { command -v "$1" >/dev/null 2>&1; }
+
+env_value_from_file()
+{
+    file=$1
+    name=$2
+    [ -f "$file" ] || return 1
+    value=$(sed -n "s/^${name}=//p" "$file" | tail -n 1)
+    [ -n "$value" ] || return 1
+    case "$value" in
+        \"*\") value=${value#\"}; value=${value%\"} ;;
+        \'*\') value=${value#\'}; value=${value%\'} ;;
+    esac
+    printf '%s\n' "$value"
+}
+
+env_value()
+{
+    name=$1
+    value=${2-}
+    if candidate=$(env_value_from_file "$PROJECT_DIR/.env" "$name"); then value=$candidate; fi
+    if candidate=$(env_value_from_file "$PROJECT_DIR/.env.local" "$name"); then value=$candidate; fi
+    eval "override=\${$name-}"
+    if [ -n "${override:-}" ]; then value=$override; fi
+    printf '%s\n' "$value"
+}
+
+require_project()
+{
+    [ -f "$PROJECT_DIR/.env" ] || fail ".env not found in $PROJECT_DIR"
+}
+
+compose()
+{
+    if [ -f "$PROJECT_DIR/.env.local" ]; then
+        docker compose \
+            --env-file "$PROJECT_DIR/.env" \
+            --env-file "$PROJECT_DIR/.env.local" \
+            -f "$PROJECT_DIR/$COMPOSE_FILE" "$@"
+    else
+        docker compose \
+            --env-file "$PROJECT_DIR/.env" \
+            -f "$PROJECT_DIR/$COMPOSE_FILE" "$@"
+    fi
+}
+
+ensure_compose_file()
+{
+    if [ ! -f "$PROJECT_DIR/$COMPOSE_FILE" ]; then
+        [ -f "$PROJECT_DIR/$COMPOSE_EXAMPLE" ] || fail "$COMPOSE_EXAMPLE not found"
+        cp "$PROJECT_DIR/$COMPOSE_EXAMPLE" "$PROJECT_DIR/$COMPOSE_FILE"
+        printf 'Created %s from %s\n' "$COMPOSE_FILE" "$COMPOSE_EXAMPLE"
+    fi
+}
+
+check_docker()
+{
+    has docker || fail 'Docker is not installed'
+    docker info >/dev/null 2>&1 || fail 'Docker is not running'
+    docker compose version >/dev/null 2>&1 || fail 'Docker Compose plugin is not installed'
+}
+
+ensure_proxy()
+{
+    docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1 \
+        || docker network create "$PROXY_NETWORK" >/dev/null
+    if docker ps --filter "name=$TRAEFIK_CONTAINER" --filter status=running \
+        --format '{{.Names}}' | grep -q .; then
+        return
+    fi
+    if [ -n "$TRAEFIK_DIR" ] && [ -f "$TRAEFIK_DIR/$TRAEFIK_COMPOSE_FILE" ]; then
+        docker compose -f "$TRAEFIK_DIR/$TRAEFIK_COMPOSE_FILE" up -d
+        return
+    fi
+    fail "Traefik is not running. Set BGT_TRAEFIK_DIR in .env.local"
+}
+
+ensure_certificates()
+{
+    [ -n "$DOMAINS" ] || return 0
+    [ -n "$SSL_CERT" ] || return 0
+    [ -n "$SSL_KEY" ] || return 0
+    cert="$PROJECT_DIR/$SSL_CERT"
+    key="$PROJECT_DIR/$SSL_KEY"
+    if [ -f "$cert" ] && openssl x509 -checkend 86400 -noout -in "$cert" >/dev/null 2>&1; then return 0; fi
+    has openssl || fail 'OpenSSL is required to generate a local certificate'
+    mkdir -p "$(dirname "$cert")"
+    primary_domain=${DOMAINS%% *}
+    san=''
+    for domain in $DOMAINS; do
+        if [ -n "$san" ]; then san="$san,"; fi
+        san="${san}DNS:${domain}"
+    done
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout "$key" -out "$cert" -subj "/CN=$primary_domain" \
+        -addext "subjectAltName=$san" >/dev/null 2>&1
+    printf 'Generated certificate for %s\n' "$DOMAINS"
+}
+
+ensure_hosts()
+{
+    [ -n "$DOMAINS" ] || return 0
+    missing=''
+    for domain in $DOMAINS; do
+        if ! grep -Eq "(^|[[:space:]])${domain}([[:space:]]|$)" /etc/hosts; then
+            missing="$missing $domain"
+        fi
+    done
+    [ -n "$missing" ] || return 0
+    line="127.0.0.1$missing"
+    if [ -w /etc/hosts ]; then
+        printf '%s\n' "$line" >>/etc/hosts
+    elif has sudo; then
+        printf '%s\n' "$line" | sudo tee -a /etc/hosts >/dev/null
+    else
+        fail "Cannot update /etc/hosts; add:$missing"
+    fi
+    printf 'Added to /etc/hosts:%s\n' "$missing"
+}
+
+dump_download()
+{
+    [ -n "$DUMP_HOST" ] || fail 'BGT_DUMP_HOST is not configured'
+    [ -n "$DUMP_REMOTE_PATH" ] || fail 'BGT_DUMP_REMOTE_PATH is not configured'
+    has ssh || fail 'ssh is required'
+    has scp || fail 'scp is required'
+    ssh -o BatchMode=yes -o ConnectTimeout=5 "$DUMP_HOST" exit || fail "Cannot connect to $DUMP_HOST"
+    remote=$(ssh "$DUMP_HOST" "ls -t $DUMP_REMOTE_PATH | head -1")
+    [ -n "$remote" ] || fail "Dump not found: $DUMP_REMOTE_PATH"
+    scp "$DUMP_HOST:$remote" "$PROJECT_DIR/$DUMP_FILE"
+    printf 'Downloaded %s\n' "$DUMP_FILE"
+}
+
+dump_import()
+{
+    dump="$PROJECT_DIR/$DUMP_FILE"
+    [ -f "$dump" ] || fail "$DUMP_FILE not found; run dev-tools dump:download"
+    [ "$DB_DRIVER" = mysql ] || fail "Unsupported BGT_DB_DRIVER: $DB_DRIVER"
+    [ -n "$DB_NAME" ] || fail 'BGT_DB_NAME is not configured'
+    case "$DB_NAME" in *[!A-Za-z0-9_]*) fail 'BGT_DB_NAME contains unsupported characters' ;; esac
+    compose exec -T "$DB_SERVICE" mysql \
+        "-h$DB_HOST" "-P$DB_PORT" "-u$DB_USER" "--password=$DB_PASSWORD" \
+        -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\`;"
+    gzip -cd "$dump" | compose exec -T "$DB_SERVICE" mysql \
+        "-h$DB_HOST" "-P$DB_PORT" "-u$DB_USER" "--password=$DB_PASSWORD" "$DB_NAME"
+    printf 'Imported %s into %s\n' "$DUMP_FILE" "$DB_NAME"
+}
+
+project_exec() { compose exec "$APP_SERVICE" "$@"; }
+
+composer_exec()
+{
+    compose exec \
+        -e GIT_CONFIG_COUNT=1 \
+        -e GIT_CONFIG_KEY_0=safe.directory \
+        -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
+        "$APP_SERVICE" composer "$@"
+}
+
+init_project()
+{
+    check_docker
+    ensure_compose_file
+    ensure_proxy
+    ensure_certificates
+    ensure_hosts
+    if [ "$DUMP_ON_INIT" = true ] && [ ! -f "$PROJECT_DIR/$DUMP_FILE" ]; then dump_download; fi
+    compose up -d --build
+    composer_exec install --no-interaction --no-progress
+    if [ "$NPM_ON_INIT" = true ]; then
+        project_exec npm install
+        project_exec npm run build
+    fi
+    if compose exec -T "$APP_SERVICE" test -x vendor/bin/dev-tools; then
+        compose exec -T \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
+            -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
+            "$APP_SERVICE" vendor/bin/dev-tools hooks:install --mode=docker
+    fi
+    if [ "$SYMFONY_ON_INIT" = true ]; then project_exec php bin/console cache:clear; fi
+    printf 'Project initialized. Domains: %s\n' "$DOMAINS"
+}
+
+self_update()
+{
+    has curl || fail 'curl is required for self-update'
+    url=${DEV_TOOLS_UPDATE_URL:-$DEV_TOOLS_UPDATE_URL_DEFAULT}
+    destination=${DEV_TOOLS_INSTALL_PATH:-$0}
+    tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT HUP INT TERM
+    curl -fsSL "$url" -o "$tmp"
+    chmod +x "$tmp"
+    new_version=$("$tmp" version 2>/dev/null) || fail 'Downloaded file is not a valid dev-tools binary'
+    if [ "$new_version" = "$DEV_TOOLS_VERSION" ]; then
+        printf 'dev-tools is already up to date (%s)\n' "$DEV_TOOLS_VERSION"
+        return
+    fi
+    if [ -w "$destination" ] || { [ ! -e "$destination" ] && [ -w "$(dirname "$destination")" ]; }; then
+        mv "$tmp" "$destination"
+    elif has sudo; then
+        sudo install -m 0755 "$tmp" "$destination"
+    else
+        fail "Cannot replace $destination"
+    fi
+    trap - EXIT HUP INT TERM
+    printf 'Updated dev-tools: %s -> %s\n' "$DEV_TOOLS_VERSION" "$new_version"
+}
+
+help()
+{
+    cat <<'EOF'
+dev-tools — shared project bootstrap, Docker and quality commands
+
+Usage:
+  dev-tools init
+  dev-tools up|down|build|rebuild|logs|shell|ps
+  dev-tools compose <arguments...>
+  dev-tools dump:download|dump:import
+  dev-tools cs:check|cs:fix|phpstan|hooks:install
+  dev-tools composer <arguments...>
+  dev-tools console <arguments...>
+  dev-tools migrate [arguments...]
+  dev-tools npm <arguments...>
+  dev-tools self-update
+  dev-tools version
+EOF
+}
+
+PROJECT_DIR=${DEV_TOOLS_PROJECT_DIR:-$(pwd)}
+command=${1:-help}
+if [ "$#" -gt 0 ]; then shift; fi
+case "$command" in version|--version|-V) printf '%s\n' "$DEV_TOOLS_VERSION"; exit 0 ;; esac
+case "$command" in help|--help|-h) help; exit 0 ;; esac
+case "$command" in self-update) self_update; exit 0 ;; esac
+require_project
+
+COMPOSE_FILE=$(env_value BGT_COMPOSE_FILE docker-compose.yml)
+COMPOSE_EXAMPLE=$(env_value BGT_COMPOSE_EXAMPLE docker-compose.example.yml)
+APP_SERVICE=$(env_value BGT_APP_SERVICE app)
+PROJECT_CONTAINER_DIR=$(env_value BGT_PROJECT_CONTAINER_DIR /app)
+PROXY_NETWORK=$(env_value BGT_PROXY_NETWORK proxy)
+TRAEFIK_CONTAINER=$(env_value BGT_TRAEFIK_CONTAINER traefik)
+TRAEFIK_DIR=$(env_value BGT_TRAEFIK_DIR '')
+TRAEFIK_COMPOSE_FILE=$(env_value BGT_TRAEFIK_COMPOSE_FILE docker-compose.yml)
+DOMAINS=$(env_value BGT_DOMAINS '')
+SSL_CERT=$(env_value BGT_SSL_CERT '')
+SSL_KEY=$(env_value BGT_SSL_KEY '')
+DUMP_HOST=$(env_value BGT_DUMP_HOST '')
+DUMP_REMOTE_PATH=$(env_value BGT_DUMP_REMOTE_PATH '')
+DUMP_FILE=$(env_value BGT_DUMP_FILE dump.sql.gz)
+DUMP_ON_INIT=$(env_value BGT_DUMP_ON_INIT false)
+DB_DRIVER=$(env_value BGT_DB_DRIVER mysql)
+DB_SERVICE=$(env_value BGT_DB_SERVICE db)
+DB_HOST=$(env_value BGT_DB_HOST localhost)
+DB_PORT=$(env_value BGT_DB_PORT 3306)
+DB_NAME=$(env_value BGT_DB_NAME '')
+DB_USER=$(env_value BGT_DB_USER root)
+DB_PASSWORD=$(env_value BGT_DB_PASSWORD '')
+NPM_ON_INIT=$(env_value BGT_NPM_ON_INIT false)
+SYMFONY_ON_INIT=$(env_value BGT_SYMFONY_ON_INIT true)
+
+case "$command" in
+    init) init_project ;;
+    up) check_docker; ensure_compose_file; ensure_proxy; compose up -d ;;
+    down) check_docker; ensure_compose_file; compose down --remove-orphans ;;
+    build) check_docker; ensure_compose_file; compose build "$@" ;;
+    rebuild) check_docker; ensure_compose_file; compose build "$APP_SERVICE"; compose up -d ;;
+    logs) check_docker; ensure_compose_file; compose logs -f "${1:-$APP_SERVICE}" ;;
+    shell) check_docker; ensure_compose_file; project_exec "${SHELL_IN_CONTAINER:-sh}" ;;
+    ps) check_docker; ensure_compose_file; compose ps ;;
+    compose) check_docker; ensure_compose_file; compose "$@" ;;
+    dump:download) dump_download ;;
+    dump:import) check_docker; ensure_compose_file; dump_import ;;
+    cs:check) check_docker; ensure_compose_file; compose exec -T "$APP_SERVICE" vendor/bin/dev-tools cs:check --mode=local ;;
+    cs:fix) check_docker; ensure_compose_file; compose exec -T "$APP_SERVICE" vendor/bin/dev-tools cs:fix --mode=local ;;
+    phpstan) check_docker; ensure_compose_file; compose exec -T "$APP_SERVICE" vendor/bin/dev-tools phpstan --mode=local "$@" ;;
+    hooks:install)
+        check_docker
+        ensure_compose_file
+        compose exec -T \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
+            -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
+            "$APP_SERVICE" vendor/bin/dev-tools hooks:install --mode=docker
+        ;;
+    composer) check_docker; ensure_compose_file; composer_exec "$@" ;;
+    console) check_docker; ensure_compose_file; project_exec php bin/console "$@" ;;
+    migrate) check_docker; ensure_compose_file; project_exec php bin/console doctrine:migrations:migrate --no-interaction "$@" ;;
+    npm) check_docker; ensure_compose_file; project_exec npm "$@" ;;
+    *) fail "Unknown command: $command" ;;
+esac
