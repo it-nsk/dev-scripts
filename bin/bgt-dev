@@ -3,7 +3,7 @@
 set -eu
 
 BGT_DEV_VERSION='0.2.0'
-BGT_DEV_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/bgt-dev'
+BGT_DEV_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/bgt-dev'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }

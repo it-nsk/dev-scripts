@@ -2,7 +2,7 @@
 
 set -eu
 
-SOURCE_URL=${BGT_DEV_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/bgt-dev}
+SOURCE_URL=${BGT_DEV_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/bgt-dev}
 INSTALL_DIR=${BGT_DEV_INSTALL_DIR:-/usr/local/bin}
 DESTINATION=$INSTALL_DIR/bgt-dev
 tmp=$(mktemp "${TMPDIR:-/tmp}/bgt-dev.XXXXXX")
