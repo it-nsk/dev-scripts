@@ -2,8 +2,8 @@
 
 set -eu
 
-BGT_DEV_VERSION='0.2.0'
-BGT_DEV_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/bgt-dev'
+DEV_TOOLS_VERSION='0.2.0'
+DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/dev-tools-global'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }
@@ -142,7 +142,7 @@ dump_download()
 dump_import()
 {
     dump="$PROJECT_DIR/$DUMP_FILE"
-    [ -f "$dump" ] || fail "$DUMP_FILE not found; run bgt-dev dump:download"
+    [ -f "$dump" ] || fail "$DUMP_FILE not found; run dev-tools dump:download"
     [ "$DB_DRIVER" = mysql ] || fail "Unsupported BGT_DB_DRIVER: $DB_DRIVER"
     [ -n "$DB_NAME" ] || fail 'BGT_DB_NAME is not configured'
     case "$DB_NAME" in *[!A-Za-z0-9_]*) fail 'BGT_DB_NAME contains unsupported characters' ;; esac
@@ -192,15 +192,15 @@ init_project()
 self_update()
 {
     has curl || fail 'curl is required for self-update'
-    url=${BGT_DEV_UPDATE_URL:-$BGT_DEV_UPDATE_URL_DEFAULT}
-    destination=${BGT_DEV_INSTALL_PATH:-$0}
-    tmp=$(mktemp "${TMPDIR:-/tmp}/bgt-dev.XXXXXX")
+    url=${DEV_TOOLS_UPDATE_URL:-$DEV_TOOLS_UPDATE_URL_DEFAULT}
+    destination=${DEV_TOOLS_INSTALL_PATH:-$0}
+    tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools.XXXXXX")
     trap 'rm -f "$tmp"' EXIT HUP INT TERM
     curl -fsSL "$url" -o "$tmp"
     chmod +x "$tmp"
-    new_version=$("$tmp" version 2>/dev/null) || fail 'Downloaded file is not a valid bgt-dev binary'
-    if [ "$new_version" = "$BGT_DEV_VERSION" ]; then
-        printf 'bgt-dev is already up to date (%s)\n' "$BGT_DEV_VERSION"
+    new_version=$("$tmp" version 2>/dev/null) || fail 'Downloaded file is not a valid dev-tools binary'
+    if [ "$new_version" = "$DEV_TOOLS_VERSION" ]; then
+        printf 'dev-tools is already up to date (%s)\n' "$DEV_TOOLS_VERSION"
         return
     fi
     if [ -w "$destination" ] || { [ ! -e "$destination" ] && [ -w "$(dirname "$destination")" ]; }; then
@@ -211,33 +211,33 @@ self_update()
         fail "Cannot replace $destination"
     fi
     trap - EXIT HUP INT TERM
-    printf 'Updated bgt-dev: %s -> %s\n' "$BGT_DEV_VERSION" "$new_version"
+    printf 'Updated dev-tools: %s -> %s\n' "$DEV_TOOLS_VERSION" "$new_version"
 }
 
 help()
 {
     cat <<'EOF'
-bgt-dev — shared project bootstrap and Docker commands
+dev-tools — shared project bootstrap, Docker and quality commands
 
 Usage:
-  bgt-dev init
-  bgt-dev up|down|build|rebuild|logs|shell|ps
-  bgt-dev compose <arguments...>
-  bgt-dev dump:download|dump:import
-  bgt-dev cs:check|cs:fix|phpstan|hooks:install
-  bgt-dev composer <arguments...>
-  bgt-dev console <arguments...>
-  bgt-dev migrate [arguments...]
-  bgt-dev npm <arguments...>
-  bgt-dev self-update
-  bgt-dev version
+  dev-tools init
+  dev-tools up|down|build|rebuild|logs|shell|ps
+  dev-tools compose <arguments...>
+  dev-tools dump:download|dump:import
+  dev-tools cs:check|cs:fix|phpstan|hooks:install
+  dev-tools composer <arguments...>
+  dev-tools console <arguments...>
+  dev-tools migrate [arguments...]
+  dev-tools npm <arguments...>
+  dev-tools self-update
+  dev-tools version
 EOF
 }
 
-PROJECT_DIR=${BGT_PROJECT_DIR:-$(pwd)}
+PROJECT_DIR=${DEV_TOOLS_PROJECT_DIR:-$(pwd)}
 command=${1:-help}
 if [ "$#" -gt 0 ]; then shift; fi
-case "$command" in version|--version|-V) printf '%s\n' "$BGT_DEV_VERSION"; exit 0 ;; esac
+case "$command" in version|--version|-V) printf '%s\n' "$DEV_TOOLS_VERSION"; exit 0 ;; esac
 case "$command" in help|--help|-h) help; exit 0 ;; esac
 case "$command" in self-update) self_update; exit 0 ;; esac
 require_project

@@ -2,10 +2,10 @@
 
 set -eu
 
-SOURCE_URL=${BGT_DEV_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/bgt-dev}
-INSTALL_DIR=${BGT_DEV_INSTALL_DIR:-/usr/local/bin}
-DESTINATION=$INSTALL_DIR/bgt-dev
-tmp=$(mktemp "${TMPDIR:-/tmp}/bgt-dev.XXXXXX")
+SOURCE_URL=${DEV_TOOLS_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/dev-tools-global}
+INSTALL_DIR=${DEV_TOOLS_INSTALL_DIR:-/usr/local/bin}
+DESTINATION=$INSTALL_DIR/dev-tools
+tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools.XXXXXX")
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
 command -v curl >/dev/null 2>&1 || {
@@ -31,4 +31,4 @@ else
 fi
 
 trap - EXIT HUP INT TERM
-printf 'Installed bgt-dev to %s\n' "$DESTINATION"
+printf 'Installed dev-tools to %s\n' "$DESTINATION"

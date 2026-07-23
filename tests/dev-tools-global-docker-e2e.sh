@@ -7,7 +7,7 @@ TMP=$(mktemp -d)
 
 cleanup()
 {
-    BGT_PROJECT_DIR="$TMP" "$ROOT/bin/bgt-dev" compose down -v --remove-orphans >/dev/null 2>&1 || true
+    DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose down -v --remove-orphans >/dev/null 2>&1 || true
     rm -rf "$TMP"
 }
 trap cleanup EXIT HUP INT TERM
@@ -44,10 +44,10 @@ printf '%s\n' \
     "INSERT INTO smoke_test VALUES (1, 'dump-import-ok');" \
     | gzip >"$TMP/dump.sql.gz"
 
-BGT_PROJECT_DIR="$TMP" "$ROOT/bin/bgt-dev" compose up -d --wait db
-BGT_PROJECT_DIR="$TMP" "$ROOT/bin/bgt-dev" dump:import
+DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose up -d --wait db
+DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" dump:import
 
-result=$(BGT_PROJECT_DIR="$TMP" "$ROOT/bin/bgt-dev" compose exec -T \
+result=$(DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose exec -T \
     db mysql -uroot --password=root -N \
     -e 'SELECT value FROM dev_tools_e2e.smoke_test WHERE id = 1')
 
@@ -56,4 +56,4 @@ result=$(BGT_PROJECT_DIR="$TMP" "$ROOT/bin/bgt-dev" compose exec -T \
     exit 1
 }
 
-printf 'Global bgt-dev Docker lifecycle and dump import E2E test passed.\n'
+printf 'Global dev-tools Docker lifecycle and dump import E2E test passed.\n'
