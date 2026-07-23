@@ -172,7 +172,7 @@ hook. Docker E2E повторяет сценарий в PHP 8.3-контейне
 `composer install`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/install.sh | sh
 ```
 
 По умолчанию бинарник устанавливается в `/usr/local/bin`. Общие команды:
