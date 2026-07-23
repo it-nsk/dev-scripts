@@ -153,8 +153,8 @@ includes:
 composer install
 composer test
 composer test-docker-e2e
-composer test-bgt-dev-e2e
-composer test-bgt-dev-docker-e2e
+composer test-dev-tools-global-e2e
+composer test-dev-tools-global-docker-e2e
 ```
 
 Local E2E создаёт временный Composer/Git-проект и проверяет fixer, PHPStan и
@@ -168,7 +168,7 @@ hook. Docker E2E повторяет сценарий в PHP 8.3-контейне
 
 ## Глобальный Docker CLI
 
-`bgt-dev` устанавливается один раз и доступен до запуска Docker и
+Глобальный `dev-tools` устанавливается один раз и доступен до запуска Docker и
 `composer install`:
 
 ```bash
@@ -178,19 +178,19 @@ curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-
 По умолчанию бинарник устанавливается в `/usr/local/bin`. Общие команды:
 
 ```bash
-bgt-dev init
-bgt-dev up
-bgt-dev down
-bgt-dev build
-bgt-dev logs
-bgt-dev shell
-bgt-dev dump:download
-bgt-dev dump:import
-bgt-dev cs:check
-bgt-dev phpstan
-bgt-dev hooks:install
-bgt-dev migrate
-bgt-dev self-update
+dev-tools init
+dev-tools up
+dev-tools down
+dev-tools build
+dev-tools logs
+dev-tools shell
+dev-tools dump:download
+dev-tools dump:import
+dev-tools cs:check
+dev-tools phpstan
+dev-tools hooks:install
+dev-tools migrate
+dev-tools self-update
 ```
 
 Уникальные настройки проекта задаются переменными `BGT_*` в `.env` и при
