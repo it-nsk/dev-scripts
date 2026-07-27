@@ -229,7 +229,9 @@ init_project()
         project_exec npm run build --if-present
     fi
     if compose exec -T "$APP_SERVICE" test -x vendor/bin/dev-tools; then
+        host_user="$(id -u):$(id -g)"
         compose exec -T \
+            --user "$host_user" \
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
             -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
             "$APP_SERVICE" vendor/bin/dev-tools hooks:install --mode=docker
@@ -331,7 +333,9 @@ case "$command" in
     hooks:install)
         check_docker
         ensure_compose_file
+        host_user="$(id -u):$(id -g)"
         compose exec -T \
+            --user "$host_user" \
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
             -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
             "$APP_SERVICE" vendor/bin/dev-tools hooks:install --mode=docker
