@@ -23,5 +23,9 @@ ln -s ../../old-pre-commit .git/hooks/pre-commit
 vendor/bin/dev-tools cs:fix
 vendor/bin/dev-tools cs:check
 vendor/bin/dev-tools phpstan
+vendor/bin/dev-tools hooks:install
+grep -Fq -- '--user' .git/hooks/pre-commit
+grep -Fq -- '"$host_user"' .git/hooks/pre-commit
+[ ! -L .git/hooks/pre-commit ]
 
 echo 'CS Fixer and PHPStan package E2E test passed.'

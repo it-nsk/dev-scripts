@@ -27,9 +27,15 @@ final readonly class Hooks
             throw new \RuntimeException('Unable to create Git hooks directory.');
         }
 
-        $command  = $this->dockerCommand();
-        $template = (string) file_get_contents($this->packageDir.'/hooks/pre-commit');
-        $script   = str_replace('__COMMAND__', implode(' ', array_map(escapeshellarg(...), $command)), $template);
+        $command      = $this->dockerCommand();
+        $template     = (string) file_get_contents($this->packageDir.'/hooks/pre-commit');
+        $shellCommand = implode(' ', array_map(escapeshellarg(...), $command));
+        $shellCommand = str_replace(
+            escapeshellarg('__DEV_TOOLS_HOST_USER__'),
+            '"$host_user"',
+            $shellCommand,
+        );
+        $script = str_replace('__COMMAND__', $shellCommand, $template);
 
         if ((is_file($target) || is_link($target)) && !unlink($target)) {
             throw new \RuntimeException('Unable to replace existing Git pre-commit hook.');
@@ -54,6 +60,7 @@ final readonly class Hooks
 
         return [
             ...$command, 'exec', '-T',
+            '--user', '__DEV_TOOLS_HOST_USER__',
             '-e', 'GIT_CONFIG_COUNT=1',
             '-e', 'GIT_CONFIG_KEY_0=safe.directory',
             '-e', 'GIT_CONFIG_VALUE_0=*',

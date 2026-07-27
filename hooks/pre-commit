@@ -5,4 +5,5 @@ set -eu
 project_dir=$(git rev-parse --show-toplevel)
 cd "$project_dir"
 
+host_user="$(id -u):$(id -g)"
 exec __COMMAND__
