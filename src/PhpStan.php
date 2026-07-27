@@ -11,30 +11,24 @@ final readonly class PhpStan
     }
 
     /** @param list<string> $paths */
-    public function analyse(array $paths, ?string $mode = null): int
+    public function analyse(array $paths): int
     {
-        $paths         = $paths !== [] ? $paths : $this->config->strings('phpstan.paths', ['src']);
-        $projectConfig = $this->config->nullableString('phpstan.config');
-        $configuration = $projectConfig ?? $this->config->string(
-            'phpstan.default_config',
-            'vendor/it-nsk/dev-tools/config/phpstan.neon',
-        );
+        $defaultProjectConfig = $this->config->path('phpstan.dist.neon');
+        $hasProjectConfig     = is_file($defaultProjectConfig);
+        $configuration        = $hasProjectConfig
+            ? 'phpstan.dist.neon'
+            : 'vendor/it-nsk/dev-tools/config/phpstan.neon';
+        if ($paths === [] && !$hasProjectConfig) {
+            $paths = ['src'];
+        }
         $command = [
-            $this->config->string('phpstan.binary', 'vendor/bin/phpstan'),
+            'vendor/bin/phpstan',
             'analyse',
             '--configuration='.$configuration,
-            '--memory-limit='.$this->config->string('phpstan.memory_limit', '1G'),
+            '--memory-limit=1G',
             '--no-progress',
             ...$paths,
         ];
-
-        $mode ??= $this->config->mode('phpstan.mode', 'local');
-        if (!in_array($mode, ['local', 'docker'], true)) {
-            throw new \InvalidArgumentException('PHPStan mode must be local or docker.');
-        }
-        if ($mode === 'docker') {
-            $command = [...$this->config->dockerPrefix(), ...$command];
-        }
 
         return $this->process->run($command, $this->config->projectDir());
     }

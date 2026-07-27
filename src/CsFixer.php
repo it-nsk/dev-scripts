@@ -10,17 +10,17 @@ final readonly class CsFixer
     {
     }
 
-    public function check(?string $mode = null): int
+    public function check(): int
     {
-        return $this->run([...$this->command(), '--verbose', '--dry-run', '--diff'], $this->resolveMode($mode));
+        return $this->run([...$this->command(), '--verbose', '--dry-run', '--diff']);
     }
 
-    public function fix(?string $mode = null): int
+    public function fix(): int
     {
-        return $this->run([...$this->command(), '--verbose'], $this->resolveMode($mode));
+        return $this->run([...$this->command(), '--verbose']);
     }
 
-    public function fixStaged(?string $mode): int
+    public function fixStaged(): int
     {
         $files = preg_split('/\R/', $this->process->output([
             'git', 'diff', '--cached', '--name-only', '--diff-filter=ACM', '--', '*.php',
@@ -31,9 +31,7 @@ final readonly class CsFixer
             return 0;
         }
 
-        $mode ??= $this->config->mode('hooks.mode', $this->config->mode('cs_fixer.mode', 'local'));
-        $mode     = $this->resolveMode($mode);
-        $exitCode = $this->run([...$this->command(), '--path-mode=intersection', ...$files], $mode);
+        $exitCode = $this->run([...$this->command(), '--path-mode=intersection', ...$files]);
         if ($exitCode !== 0) {
             return $exitCode;
         }
@@ -54,34 +52,17 @@ final readonly class CsFixer
     private function command(): array
     {
         return [
-            $this->config->string('cs_fixer.binary', 'vendor/bin/php-cs-fixer'),
+            'vendor/bin/php-cs-fixer',
             'fix',
-            '--config='.$this->config->string('cs_fixer.config', 'vendor/it-nsk/dev-tools/config/php-cs-fixer.php'),
+            '--config=vendor/it-nsk/dev-tools/config/php-cs-fixer.php',
         ];
     }
 
     /** @param list<string> $command */
-    private function run(array $command, string $mode): int
+    private function run(array $command): int
     {
-        if ($mode === 'docker') {
-            $command = [...$this->config->dockerPrefix(), ...$command];
-        }
-
         return $this->process->run($command, $this->config->projectDir(), [
-            'DEV_TOOLS_CONFIG'      => $this->config->file(),
             'DEV_TOOLS_PROJECT_DIR' => $this->config->projectDir(),
         ]);
-    }
-
-    private function resolveMode(?string $mode): string
-    {
-        if ($mode === null) {
-            return $this->config->mode('cs_fixer.mode', 'local');
-        }
-        if (!in_array($mode, ['local', 'docker'], true)) {
-            throw new \InvalidArgumentException('CS Fixer mode must be local or docker.');
-        }
-
-        return $mode;
     }
 }
