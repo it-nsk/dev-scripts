@@ -207,6 +207,14 @@ composer_exec()
         "$APP_SERVICE" composer "$@"
 }
 
+check_composer_ssh()
+{
+    [ -n "$COMPOSER_SSH_HOST" ] || return 0
+    project_exec ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+        -T "$COMPOSER_SSH_HOST" >/dev/null 2>&1 \
+        || fail "SSH access to $COMPOSER_SSH_HOST is unavailable; run ssh-add on the host"
+}
+
 init_project()
 {
     check_docker
@@ -219,6 +227,7 @@ init_project()
         dump_download
     fi
     compose up -d --build
+    check_composer_ssh
     composer_exec install --no-interaction --no-progress
     if [ -f "$PROJECT_DIR/package.json" ]; then
         if [ -f "$PROJECT_DIR/package-lock.json" ]; then
@@ -314,6 +323,7 @@ DB_PORT=$(env_value DEV_TOOLS_DB_PORT 3306)
 DB_NAME=$(env_value DEV_TOOLS_DB_NAME '')
 DB_USER=$(env_value DEV_TOOLS_DB_USER root)
 DB_PASSWORD=$(env_value DEV_TOOLS_DB_PASSWORD root)
+COMPOSER_SSH_HOST=$(env_value DEV_TOOLS_COMPOSER_SSH_HOST '')
 
 case "$command" in
     init) init_project ;;
