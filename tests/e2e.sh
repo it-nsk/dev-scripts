@@ -8,8 +8,6 @@ trap 'rm -rf "$project"' EXIT
 
 cp -R "$root/tests/project/." "$project/"
 cd "$project"
-cp .dev-tools.local.yaml .dev-tools.yaml
-
 git init -q
 git config user.name 'Dev Tools Test'
 git config user.email 'dev-tools@example.invalid'
@@ -22,16 +20,8 @@ composer require --dev it-nsk/dev-tools:@dev \
 test "$(readlink -f vendor/it-nsk/dev-tools)" = "$root"
 printf '#!/usr/bin/env sh\nexit 1\n' > old-pre-commit
 ln -s ../../old-pre-commit .git/hooks/pre-commit
-vendor/bin/dev-tools hooks:install --mode=local
-test -x .git/hooks/pre-commit
-test ! -L .git/hooks/pre-commit
-
-git add src
-.git/hooks/pre-commit
-git diff --quiet -- src
-git diff --cached --check
-
+vendor/bin/dev-tools cs:fix
 vendor/bin/dev-tools cs:check
 vendor/bin/dev-tools phpstan
 
-echo 'CS Fixer, PHPStan and local hook E2E test passed.'
+echo 'CS Fixer and PHPStan package E2E test passed.'

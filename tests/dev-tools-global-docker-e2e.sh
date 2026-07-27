@@ -13,16 +13,21 @@ cleanup()
 trap cleanup EXIT HUP INT TERM
 
 cat >"$TMP/.env" <<'EOF'
-BGT_COMPOSE_FILE=compose.yaml
-BGT_COMPOSE_EXAMPLE=compose.example.yaml
-BGT_DB_DRIVER=mysql
-BGT_DB_SERVICE=db
-BGT_DB_HOST=localhost
-BGT_DB_PORT=3306
-BGT_DB_NAME=dev_tools_e2e
-BGT_DB_USER=root
-BGT_DB_PASSWORD=root
-BGT_DUMP_FILE=dump.sql.gz
+DEV_TOOLS_COMPOSE_FILE=compose.yaml
+DEV_TOOLS_COMPOSE_EXAMPLE=compose.example.yaml
+DEV_TOOLS_APP_SERVICE=db
+DEV_TOOLS_DB_DRIVER=mysql
+DEV_TOOLS_DB_SERVICE=db
+DEV_TOOLS_DB_HOST=localhost
+DEV_TOOLS_DB_PORT=3306
+DEV_TOOLS_DB_NAME=dev_tools_e2e
+DEV_TOOLS_DB_USER=root
+DEV_TOOLS_DB_PASSWORD=root
+DEV_TOOLS_DUMP_FILE=dump.sql.gz
+EOF
+
+cat >"$TMP/.env.local.example" <<'EOF'
+LOCAL_ENV_CREATED=true
 EOF
 
 cat >"$TMP/compose.example.yaml" <<'EOF'
@@ -45,6 +50,8 @@ printf '%s\n' \
     | gzip >"$TMP/dump.sql.gz"
 
 DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose up -d --wait db
+[ -f "$TMP/.env.local" ]
+grep -qx 'LOCAL_ENV_CREATED=true' "$TMP/.env.local"
 DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" dump:import
 
 result=$(DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose exec -T \
@@ -55,5 +62,22 @@ result=$(DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose exec 
     printf 'Unexpected dump value: %s\n' "$result" >&2
     exit 1
 }
+
+printf 'not-a-gzip-dump\n' >"$TMP/dump.sql.gz"
+if DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" dump:import >/dev/null 2>&1; then
+    printf 'Invalid dump was accepted\n' >&2
+    exit 1
+fi
+result=$(DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" compose exec -T \
+    db mysql -uroot --password=root -N \
+    -e 'SELECT value FROM dev_tools_e2e.smoke_test WHERE id = 1')
+[ "$result" = 'dump-import-ok' ] || {
+    printf 'Database changed after invalid dump: %s\n' "$result" >&2
+    exit 1
+}
+
+result=$(DEV_TOOLS_PROJECT_DIR="$TMP" "$ROOT/bin/dev-tools-global" sh \
+    'printf "shell-command-ok"')
+[ "$result" = 'shell-command-ok' ]
 
 printf 'Global dev-tools Docker lifecycle and dump import E2E test passed.\n'
