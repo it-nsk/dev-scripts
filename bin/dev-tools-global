@@ -80,7 +80,11 @@ ensure_proxy()
 {
     docker network inspect "$PROXY_NETWORK" >/dev/null 2>&1 \
         || docker network create "$PROXY_NETWORK" >/dev/null
-    if [ "$(docker inspect -f '{{.State.Running}}' "$TRAEFIK_CONTAINER" 2>/dev/null || true)" = true ]; then
+    running=$(docker inspect -f '{{.State.Running}}' "$TRAEFIK_CONTAINER" 2>/dev/null || true)
+    connected=$(docker inspect \
+        -f "{{if index .NetworkSettings.Networks \"$PROXY_NETWORK\"}}true{{end}}" \
+        "$TRAEFIK_CONTAINER" 2>/dev/null || true)
+    if [ "$running" = true ] && [ "$connected" = true ]; then
         return
     fi
     if [ ! -d "$TRAEFIK_DIR" ]; then
@@ -89,7 +93,18 @@ ensure_proxy()
     fi
     [ -f "$TRAEFIK_DIR/docker-compose.yml" ] \
         || fail "Traefik compose file not found: $TRAEFIK_DIR/docker-compose.yml"
-    docker compose -f "$TRAEFIK_DIR/docker-compose.yml" up -d
+    if [ "$running" = true ]; then
+        printf 'Recreating Traefik: network %s is missing\n' "$PROXY_NETWORK"
+        docker compose -f "$TRAEFIK_DIR/docker-compose.yml" up -d --force-recreate
+    else
+        docker compose -f "$TRAEFIK_DIR/docker-compose.yml" up -d
+    fi
+    running=$(docker inspect -f '{{.State.Running}}' "$TRAEFIK_CONTAINER" 2>/dev/null || true)
+    connected=$(docker inspect \
+        -f "{{if index .NetworkSettings.Networks \"$PROXY_NETWORK\"}}true{{end}}" \
+        "$TRAEFIK_CONTAINER" 2>/dev/null || true)
+    [ "$running" = true ] && [ "$connected" = true ] \
+        || fail "Traefik is not connected to $PROXY_NETWORK"
 }
 
 ensure_certificates()
