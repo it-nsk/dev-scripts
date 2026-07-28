@@ -46,7 +46,7 @@ dev-tools self-update
 - `.env.local.example` — локальные настройки приложения и проекта;
 - `.env.local` — локальная копия, не хранится в Git;
 - `docker-compose.example.yml` — шаблон в Git;
-- `docker-compose.yml` — рабочая копия в `.gitignore`;
+- `docker-compose.yml` — автоматически обновляемая копия в `.gitignore`;
 - Dockerfile и nginx-конфигурация проекта.
 
 Обычно в `.env.local.example` достаточно:
@@ -72,13 +72,23 @@ dev-tools init
 
 `init`:
 
-- создает локальные файлы из example;
+- создает `.env.local` и обновляет Compose из example;
 - проверяет Docker;
 - клонирует и запускает `multifinger/droxy`, если Traefik еще не установлен;
 - создает SSL-сертификат и записи `/etc/hosts`;
 - скачивает dump, если настроен источник;
 - собирает и запускает контейнеры;
 - выполняет Composer, frontend build, cache clear и установку hook.
+
+Для проекта, ранее работавшего на хосте:
+
+```bash
+dev-tools init --migrate-from-host
+```
+
+Старый `.env.local` сохраняется как `.env.local.host-backup`, после чего
+создается Docker-конфигурация. Обычный `init` существующего Docker-проекта
+сохраняет `.env.local`, но синхронизирует генерируемый Compose-файл.
 
 ## Команды
 
