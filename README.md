@@ -32,7 +32,7 @@ dev-tools self-update
 ```json
 {
     "require-dev": {
-        "it-nsk/dev-tools": "^0.3.0"
+        "it-nsk/dev-tools": "^0.2.0"
     }
 }
 ```

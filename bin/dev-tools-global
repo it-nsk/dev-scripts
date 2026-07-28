@@ -2,7 +2,7 @@
 
 set -eu
 
-DEV_TOOLS_VERSION='0.3.0'
+DEV_TOOLS_VERSION='0.2.0'
 DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/dev-tools-global'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
