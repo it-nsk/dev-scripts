@@ -40,4 +40,27 @@ DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools-old" \
     "$TMP/bin/dev-tools-old" self-update | grep -q 'Updated dev-tools: 0.2.0 -> 0.3.0'
 "$TMP/bin/dev-tools-old" version | grep -qx '0.3.0'
 
+cat >"$TMP/bin/docker" <<'EOF'
+#!/bin/sh
+case "$*" in
+    "inspect -f {{.State.Running}}"*) printf 'true\n' ;;
+    "inspect -f {{if index "*".NetworkSettings.Networks"*) printf 'true\n' ;;
+esac
+exit 0
+EOF
+chmod +x "$TMP/bin/docker"
+
+printf 'OLD_COMPOSE=true\n' >"$TMP/project/compose.yaml"
+PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \
+    "$ROOT/bin/dev-tools-global" compose config
+cmp "$TMP/project/compose.example.yaml" "$TMP/project/compose.yaml"
+
+printf 'HOST_DATABASE=true\n' >"$TMP/project/.env.local"
+printf 'DOCKER_DATABASE=true\n' >"$TMP/project/.env.local.example"
+PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \
+    DEV_TOOLS_DOMAIN=localhost DEV_TOOLS_DOMAINS=localhost \
+    "$ROOT/bin/dev-tools-global" init --migrate-from-host
+grep -qx 'HOST_DATABASE=true' "$TMP/project/.env.local.host-backup"
+grep -qx 'DOCKER_DATABASE=true' "$TMP/project/.env.local"
+
 printf 'Global dev-tools install and self-update E2E test passed.\n'

@@ -46,6 +46,21 @@ ensure_local_env()
     printf 'Created .env.local from .env.local.example\n'
 }
 
+migrate_host_env()
+{
+    example="$PROJECT_DIR/.env.local.example"
+    local_env="$PROJECT_DIR/.env.local"
+    backup="$PROJECT_DIR/.env.local.host-backup"
+    [ -f "$example" ] || fail '.env.local.example not found'
+    if [ -f "$local_env" ] && ! cmp -s "$local_env" "$example"; then
+        [ ! -e "$backup" ] || fail '.env.local.host-backup already exists; move or remove it first'
+        cp "$local_env" "$backup"
+        printf 'Saved previous .env.local as .env.local.host-backup\n'
+    fi
+    cp "$example" "$local_env"
+    printf 'Prepared .env.local for Docker\n'
+}
+
 compose()
 {
     if [ -f "$PROJECT_DIR/.env.local" ]; then
@@ -62,10 +77,13 @@ compose()
 
 ensure_compose_file()
 {
+    [ -f "$PROJECT_DIR/$COMPOSE_EXAMPLE" ] || fail "$COMPOSE_EXAMPLE not found"
     if [ ! -f "$PROJECT_DIR/$COMPOSE_FILE" ]; then
-        [ -f "$PROJECT_DIR/$COMPOSE_EXAMPLE" ] || fail "$COMPOSE_EXAMPLE not found"
         cp "$PROJECT_DIR/$COMPOSE_EXAMPLE" "$PROJECT_DIR/$COMPOSE_FILE"
         printf 'Created %s from %s\n' "$COMPOSE_FILE" "$COMPOSE_EXAMPLE"
+    elif ! cmp -s "$PROJECT_DIR/$COMPOSE_EXAMPLE" "$PROJECT_DIR/$COMPOSE_FILE"; then
+        cp "$PROJECT_DIR/$COMPOSE_EXAMPLE" "$PROJECT_DIR/$COMPOSE_FILE"
+        printf 'Updated %s from %s\n' "$COMPOSE_FILE" "$COMPOSE_EXAMPLE"
     fi
 }
 
@@ -295,7 +313,7 @@ help()
 dev-tools — shared project bootstrap, Docker and quality commands
 
 Usage:
-  dev-tools init
+  dev-tools init [--migrate-from-host]
   dev-tools up|down|build|rebuild|logs|ps
   dev-tools sh ["command"]
   dev-tools compose <arguments...>
@@ -313,6 +331,10 @@ case "$command" in version|--version|-V) printf '%s\n' "$DEV_TOOLS_VERSION"; exi
 case "$command" in help|--help|-h) help; exit 0 ;; esac
 case "$command" in self-update) self_update; exit 0 ;; esac
 require_project
+if [ "$command" = init ] && [ "${1:-}" = "--migrate-from-host" ]; then
+    migrate_host_env
+    shift
+fi
 ensure_local_env
 
 COMPOSE_FILE=$(env_value DEV_TOOLS_COMPOSE_FILE docker-compose.yml)
@@ -341,7 +363,10 @@ DB_PASSWORD=$(env_value DEV_TOOLS_DB_PASSWORD root)
 COMPOSER_SSH_HOST=$(env_value DEV_TOOLS_COMPOSER_SSH_HOST '')
 
 case "$command" in
-    init) init_project ;;
+    init)
+        [ "$#" -eq 0 ] || fail 'Use: dev-tools init [--migrate-from-host]'
+        init_project
+        ;;
     up) check_docker; ensure_compose_file; ensure_proxy; compose up -d ;;
     down) check_docker; ensure_compose_file; compose down --remove-orphans ;;
     build) check_docker; ensure_compose_file; compose build "$@" ;;
