@@ -3,7 +3,7 @@
 Пакет подключается из Packagist:
 
 ```bash
-composer require --dev it-nsk/dev-tools:^0.3.0
+composer require --dev it-nsk/dev-tools:^0.2.0
 ```
 
 В рабочем процессе Composer запускается внутри Docker через `dev-tools init`

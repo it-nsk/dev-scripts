@@ -19,26 +19,27 @@ services:
     image: php:8.3-cli
 EOF
 
-DEV_TOOLS_PROJECT_DIR="$TMP/project" "$ROOT/bin/dev-tools-global" version | grep -qx '0.3.0'
+CURRENT_VERSION=$(DEV_TOOLS_PROJECT_DIR="$TMP/project" "$ROOT/bin/dev-tools-global" version)
+printf '%s\n' "$CURRENT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
 DEV_TOOLS_PROJECT_DIR="$TMP/project" "$ROOT/bin/dev-tools-global" help | grep -q 'dump:download'
 
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_DIR="$TMP/bin" \
     "$ROOT/install.sh"
-"$TMP/bin/dev-tools" version | grep -qx '0.3.0'
+"$TMP/bin/dev-tools" version | grep -qx "$CURRENT_VERSION"
 
 DEV_TOOLS_PROJECT_DIR="$TMP/project" \
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools" \
     "$TMP/bin/dev-tools" self-update | grep -q 'already up to date'
 
-sed "s/DEV_TOOLS_VERSION='0.3.0'/DEV_TOOLS_VERSION='0.2.0'/" \
+sed "s/DEV_TOOLS_VERSION='$CURRENT_VERSION'/DEV_TOOLS_VERSION='0.0.0'/" \
     "$ROOT/bin/dev-tools-global" >"$TMP/bin/dev-tools-old"
 chmod +x "$TMP/bin/dev-tools-old"
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools-old" \
-    "$TMP/bin/dev-tools-old" self-update | grep -q 'Updated dev-tools: 0.2.0 -> 0.3.0'
-"$TMP/bin/dev-tools-old" version | grep -qx '0.3.0'
+    "$TMP/bin/dev-tools-old" self-update | grep -q "Updated dev-tools: 0.0.0 -> $CURRENT_VERSION"
+"$TMP/bin/dev-tools-old" version | grep -qx "$CURRENT_VERSION"
 
 cat >"$TMP/bin/docker" <<'EOF'
 #!/bin/sh
