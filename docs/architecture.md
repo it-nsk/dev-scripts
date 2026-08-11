@@ -21,6 +21,10 @@ GitHub it-nsk/dev-scripts
 за lifecycle Docker, установку Traefik, локальные домены, сертификат, dump,
 `self-update` и передачу команд в сервис `app`.
 
+Интерактивная команда `dev-tools sh` запускает login Zsh внутри `app`.
+Zsh и Oh My Zsh устанавливаются в Dockerfile проекта, поскольку содержимое
+контейнера не должно изменяться глобальным CLI во время запуска.
+
 Домены, адрес dump
 и имя БД берутся из `.env.local`.
 

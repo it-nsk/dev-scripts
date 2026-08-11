@@ -43,6 +43,8 @@ DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools-old" \
 
 cat >"$TMP/bin/docker" <<'EOF'
 #!/bin/sh
+if [ -n "${DEV_TOOLS_DOCKER_LOG:-}" ]; then printf '%s\n' "$*" >>"$DEV_TOOLS_DOCKER_LOG"; fi
+case "$*" in *"command -v"*"missing-shell"*) exit 1 ;; esac
 case "$*" in
     "inspect -f {{.State.Running}}"*) printf 'true\n' ;;
     "inspect -f {{if index "*".NetworkSettings.Networks"*) printf 'true\n' ;;
@@ -50,6 +52,27 @@ esac
 exit 0
 EOF
 chmod +x "$TMP/bin/docker"
+
+: >"$TMP/docker.log"
+PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \
+    DEV_TOOLS_DOCKER_LOG="$TMP/docker.log" \
+    "$ROOT/bin/dev-tools-global" sh
+grep -Eq 'exec .*php zsh -l$' "$TMP/docker.log"
+
+: >"$TMP/docker.log"
+PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \
+    DEV_TOOLS_DOCKER_LOG="$TMP/docker.log" \
+    "$ROOT/bin/dev-tools-global" sh 'printf "zsh-command-ok"'
+grep -Eq 'exec -T .*php zsh -lc printf "zsh-command-ok"$' "$TMP/docker.log"
+
+if PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \
+    DEV_TOOLS_CONTAINER_SHELL=missing-shell \
+    "$ROOT/bin/dev-tools-global" sh 'true' 2>"$TMP/shell-error"; then
+    printf 'Missing container shell was accepted\n' >&2
+    exit 1
+fi
+grep -q "Container shell 'missing-shell' is not installed in service 'php'" \
+    "$TMP/shell-error"
 
 printf 'OLD_COMPOSE=true\n' >"$TMP/project/compose.yaml"
 PATH="$TMP/bin:$PATH" DEV_TOOLS_PROJECT_DIR="$TMP/project" \

@@ -10,7 +10,8 @@
 
 ## Установка глобальной команды
 
-Требуются Git, Docker с Compose plugin и `curl`.
+Требуются Git, Docker с Compose plugin и `curl`. В `app`-образе должны быть
+установлены Zsh и Oh My Zsh для рабочего пользователя контейнера.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/install.sh | sh
@@ -113,8 +114,24 @@ dev-tools phpstan src/Foo.php src/Bar.php
 dev-tools hooks:install
 ```
 
-`dev-tools sh` открывает shell. Вариант с одним аргументом выполняет команду
-через `sh -lc` внутри `app`.
+`dev-tools sh` открывает login Zsh с Oh My Zsh. Вариант с одним аргументом
+выполняет команду через `zsh -lc` внутри `app`:
+
+```bash
+dev-tools sh
+dev-tools sh 'php bin/console cache:clear'
+```
+
+Zsh является стандартной оболочкой. Для образа, который временно её не
+поддерживает, оболочку можно переопределить в `.env.local`:
+
+```dotenv
+DEV_TOOLS_CONTAINER_SHELL=sh
+```
+
+Если настроенная оболочка отсутствует в `app`, команда завершится с понятной
+ошибкой. Это переопределение предназначено для миграции старых образов; новые
+проекты должны устанавливать Zsh и Oh My Zsh на этапе сборки.
 
 `dump:import` удаляет и создает заново только настроенную локальную БД.
 

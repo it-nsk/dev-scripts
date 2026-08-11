@@ -2,7 +2,7 @@
 
 set -eu
 
-DEV_TOOLS_VERSION='0.2.0'
+DEV_TOOLS_VERSION='0.2.1'
 DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/dev-tools-global'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -213,14 +213,22 @@ dump_import()
 
 project_exec() { compose exec -T "$APP_SERVICE" "$@"; }
 
+check_container_shell()
+{
+    compose exec -T "$APP_SERVICE" sh -c \
+        'command -v "$1" >/dev/null 2>&1' sh "$CONTAINER_SHELL" \
+        || fail "Container shell '$CONTAINER_SHELL' is not installed in service '$APP_SERVICE'"
+}
+
 project_shell()
 {
+    check_container_shell
     if [ "$#" -eq 0 ]; then
         compose exec \
             -e GIT_CONFIG_COUNT=1 \
             -e GIT_CONFIG_KEY_0=safe.directory \
             -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
-            "$APP_SERVICE" "${SHELL_IN_CONTAINER:-sh}"
+            "$APP_SERVICE" "$CONTAINER_SHELL" -l
         return
     fi
     [ "$#" -eq 1 ] || fail 'Use: dev-tools sh or dev-tools sh "command"'
@@ -228,7 +236,7 @@ project_shell()
         -e GIT_CONFIG_COUNT=1 \
         -e GIT_CONFIG_KEY_0=safe.directory \
         -e "GIT_CONFIG_VALUE_0=$PROJECT_CONTAINER_DIR" \
-        "$APP_SERVICE" sh -lc "$1"
+        "$APP_SERVICE" "$CONTAINER_SHELL" -lc "$1"
 }
 
 composer_exec()
@@ -340,6 +348,7 @@ ensure_local_env
 COMPOSE_FILE=$(env_value DEV_TOOLS_COMPOSE_FILE docker-compose.yml)
 COMPOSE_EXAMPLE=$(env_value DEV_TOOLS_COMPOSE_EXAMPLE docker-compose.example.yml)
 APP_SERVICE=$(env_value DEV_TOOLS_APP_SERVICE app)
+CONTAINER_SHELL=$(env_value DEV_TOOLS_CONTAINER_SHELL zsh)
 PROJECT_CONTAINER_DIR=$(env_value DEV_TOOLS_PROJECT_CONTAINER_DIR '*')
 PROXY_NETWORK=$(env_value DEV_TOOLS_PROXY_NETWORK proxy)
 TRAEFIK_CONTAINER=$(env_value DEV_TOOLS_TRAEFIK_CONTAINER traefik)

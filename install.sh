@@ -2,7 +2,7 @@
 
 set -eu
 
-SOURCE_URL=${DEV_TOOLS_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/bin/dev-tools-global}
+SOURCE_URL=${DEV_TOOLS_UPDATE_URL:-https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/dev-tools-global}
 INSTALL_DIR=${DEV_TOOLS_INSTALL_DIR:-/usr/local/bin}
 DESTINATION=$INSTALL_DIR/dev-tools
 tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools.XXXXXX")
