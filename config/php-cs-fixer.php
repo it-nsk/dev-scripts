@@ -7,11 +7,9 @@ use PhpCsFixer\Config as PhpCsFixerConfig;
 use PhpCsFixer\Finder;
 
 $projectDir = getenv('DEV_TOOLS_PROJECT_DIR') ?: getcwd();
-$configFile = getenv('DEV_TOOLS_CONFIG') ?: $projectDir.'/.dev-tools.yaml';
-$config     = Config::load($projectDir, $configFile);
+$config     = Config::load($projectDir);
 $finder     = Finder::create()
-    ->in(array_map($config->path(...), $config->strings('cs_fixer.paths', ['src'])))
-    ->exclude($config->strings('cs_fixer.exclude'));
+    ->in($config->path('src'));
 
 return (new PhpCsFixerConfig())
     ->setRules([

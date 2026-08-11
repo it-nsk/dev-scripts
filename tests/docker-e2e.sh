@@ -18,7 +18,7 @@ trap cleanup EXIT INT TERM
 
 cp -R "$root/tests/project/." "$project/"
 cd "$project"
-cp .dev-tools.docker.yaml .dev-tools.yaml
+: > .env
 git init -q
 git config user.name 'Dev Tools Test'
 git config user.email 'dev-tools@example.invalid'
@@ -34,7 +34,11 @@ docker compose -f compose.yaml build
 docker compose -f compose.yaml up -d --wait
 test -n "$(docker compose -f compose.yaml ps --status running -q app)"
 
-vendor/bin/dev-tools hooks:install --mode=docker
+docker compose -f compose.yaml exec -T \
+    -e GIT_CONFIG_COUNT=1 \
+    -e GIT_CONFIG_KEY_0=safe.directory \
+    -e GIT_CONFIG_VALUE_0=/app \
+    app vendor/bin/dev-tools hooks:install
 git add src
 .git/hooks/pre-commit
 git diff --quiet -- src

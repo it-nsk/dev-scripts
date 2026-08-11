@@ -15,13 +15,8 @@ final readonly class Hooks
     ) {
     }
 
-    public function install(?string $mode): int
+    public function install(): int
     {
-        $mode ??= $this->config->mode('hooks.mode', 'local');
-        if (!in_array($mode, ['local', 'docker'], true)) {
-            throw new \InvalidArgumentException('Hook mode must be local or docker.');
-        }
-
         $gitDir = $this->process->output(['git', 'rev-parse', '--git-dir'], $this->config->projectDir());
         $gitDir = str_starts_with($gitDir, '/') ? $gitDir : $this->config->path($gitDir);
         $target = $gitDir.'/hooks/pre-commit';
@@ -32,9 +27,15 @@ final readonly class Hooks
             throw new \RuntimeException('Unable to create Git hooks directory.');
         }
 
-        $command  = $mode === 'docker' ? $this->dockerCommand() : ['vendor/bin/dev-tools', 'cs:fix-staged', '--mode=local'];
-        $template = (string) file_get_contents($this->packageDir.'/hooks/pre-commit');
-        $script   = str_replace('__COMMAND__', implode(' ', array_map(escapeshellarg(...), $command)), $template);
+        $command      = $this->dockerCommand();
+        $template     = (string) file_get_contents($this->packageDir.'/hooks/pre-commit');
+        $shellCommand = implode(' ', array_map(escapeshellarg(...), $command));
+        $shellCommand = str_replace(
+            escapeshellarg('__DEV_TOOLS_HOST_USER__'),
+            '"$host_user"',
+            $shellCommand,
+        );
+        $script = str_replace('__COMMAND__', $shellCommand, $template);
 
         if ((is_file($target) || is_link($target)) && !unlink($target)) {
             throw new \RuntimeException('Unable to replace existing Git pre-commit hook.');
@@ -44,7 +45,7 @@ final readonly class Hooks
             throw new \RuntimeException('Unable to install pre-commit hook.');
         }
 
-        echo sprintf("Git pre-commit hook installed in %s mode.\n", $mode);
+        echo "Git pre-commit hook installed.\n";
 
         return 0;
     }
@@ -52,14 +53,18 @@ final readonly class Hooks
     /** @return list<string> */
     private function dockerCommand(): array
     {
+        $command = ['docker', 'compose', '--env-file', '.env'];
+        if (is_file($this->config->path('.env.local'))) {
+            $command = [...$command, '--env-file', '.env.local'];
+        }
+
         return [
-            ...$this->config->dockerCommand(),
-            'exec', '-T',
+            ...$command, 'exec', '-T',
+            '--user', '__DEV_TOOLS_HOST_USER__',
             '-e', 'GIT_CONFIG_COUNT=1',
             '-e', 'GIT_CONFIG_KEY_0=safe.directory',
             '-e', 'GIT_CONFIG_VALUE_0=*',
-            $this->config->string('docker.service', 'app'),
-            'vendor/bin/dev-tools', 'cs:fix-staged', '--mode=local',
+            'app', 'vendor/bin/dev-tools', 'cs:fix-staged',
         ];
     }
 }

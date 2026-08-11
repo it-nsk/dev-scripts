@@ -10,11 +10,22 @@
 ### Added
 
 - общие команды PHP CS Fixer и PHPStan;
-- local и Docker-режимы запуска;
-- установка local и Docker pre-commit hooks;
-- Makefile-интеграция;
-- local и Docker E2E-тесты.
 - глобальный `dev-tools` для Docker lifecycle и проектных команд;
 - одноразовый установщик и команда `self-update`;
 - скачивание и импорт MySQL gzip dump;
 - E2E установки, обновления и импорта dump в чистый MySQL-контейнер.
+
+### Changed
+
+- `dev-tools sh` использует Zsh по умолчанию для интерактивного входа и команд;
+- установщик и `self-update` загружают глобальный CLI из ветки `dev`;
+- глобальный CLI обновлен до версии `0.2.1`;
+- все пользовательские команды выполняются через глобальный Docker CLI;
+- Composer-пакет выполняет PHP-инструменты только внутри `app`-контейнера;
+- `dev-tools sh` заменяет отдельные Composer, npm и Symfony-обертки;
+- типовые настройки перенесены в defaults, `.dev-tools.yaml` больше не нужен;
+
+### Removed
+
+- local/Docker modes внутреннего Composer-бинарника;
+- Makefile-интеграция и YAML-конфигурация проекта.

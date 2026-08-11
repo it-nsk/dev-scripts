@@ -1,202 +1,161 @@
-# Dev Tools
+# dev-tools
 
-Общие PHP CS Fixer, PHPStan и Git hooks для PHP/Symfony-проектов. Пакет хранит
-логику инструментов в одном месте, а каждый проект задаёт только пути и режим
-запуска в `.dev-tools.yaml`.
+Один репозиторий содержит две части:
 
-## Возможности
+- глобальный shell CLI управляет Docker, Traefik, dump и запуском команд;
+- Composer-пакет `it-nsk/dev-tools` содержит PHP CS Fixer, PHPStan и Git hook.
 
-- единый набор правил PHP CS Fixer;
-- общая конфигурация PHPStan для Symfony и Doctrine;
-- запуск инструментов локально или через Docker Compose;
-- pre-commit hook, исправляющий только staged PHP-файлы;
-- готовые Makefile-цели без копирования команд между проектами.
+Разработчик работает только с глобальной командой `dev-tools`.
+`vendor/bin/dev-tools` вызывается автоматически внутри `app`-контейнера.
 
-## Требования
+## Установка глобальной команды
 
-- PHP 8.3 или новее;
-- Composer 2;
-- Git — для установки и выполнения hook;
-- Docker Compose — только для Docker-режима.
-
-## Установка
+Требуются Git, Docker с Compose plugin и `curl`. В `app`-образе должны быть
+установлены Zsh и Oh My Zsh для рабочего пользователя контейнера.
 
 ```bash
-composer require --dev it-nsk/dev-tools
+curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/install.sh | sh
+dev-tools version
 ```
 
-Создайте `.dev-tools.yaml`:
+По умолчанию команда устанавливается в `/usr/local/bin/dev-tools`.
 
-```yaml
-cs_fixer:
-    mode: local
-    paths: [src]
-
-phpstan:
-    mode: local
-    paths: [src]
-
-hooks:
-    mode: local
-```
-
-Проверьте подключение:
+Обновление:
 
 ```bash
-vendor/bin/dev-tools help
-vendor/bin/dev-tools cs:check
-vendor/bin/dev-tools phpstan
+dev-tools self-update
 ```
 
-## Docker
+## Подключение Composer-пакета
 
-Инструменты можно запускать в сервисе приложения:
+В `composer.json` проекта:
 
-```yaml
-cs_fixer:
-    mode: docker
-    paths: [src]
-
-phpstan:
-    mode: docker
-    paths: [src]
-
-hooks:
-    mode: docker
-
-docker:
-    command: [docker, compose]
-    service: app
-    env_files: [.env, .env.local]
+```json
+{
+    "require-dev": {
+        "it-nsk/dev-tools": "^0.2.0"
+    }
+}
 ```
 
-Режим из YAML можно переопределить для одного запуска:
+Пакет устанавливается командой `composer install` внутри `app`-контейнера.
+Отдельный VCS repository для него не нужен: релизы находятся в Packagist.
+
+## Файлы проекта
+
+- `.env` — существующие настройки приложения для production/test;
+- `.env.local.example` — локальные настройки приложения и проекта;
+- `.env.local` — локальная копия, не хранится в Git;
+- `docker-compose.example.yml` — шаблон в Git;
+- `docker-compose.yml` — автоматически обновляемая копия в `.gitignore`;
+- Dockerfile и nginx-конфигурация проекта.
+
+Обычно в `.env.local.example` достаточно:
+
+```dotenv
+DEV_TOOLS_DOMAIN=project.my
+DEV_TOOLS_PMA_DOMAIN=pma.project.my
+DEV_TOOLS_DUMP_HOST=backup
+DEV_TOOLS_DUMP_REMOTE_PATH=/backup/project/*.sql.gz
+DEV_TOOLS_DB_NAME=project
+```
+
+Остальные значения имеют defaults: Compose-файл `docker-compose.yml`,
+сервис приложения `app`, сервис БД `db`, сеть `proxy`, MySQL root-пароль
+`root`, dump `dump.sql.gz`, Traefik в соседнем каталоге `droxy`.
+
+## Первый запуск
 
 ```bash
-vendor/bin/dev-tools cs:check --mode=local
-vendor/bin/dev-tools cs:check --mode=docker
-vendor/bin/dev-tools phpstan --mode=local
-vendor/bin/dev-tools phpstan --mode=docker
+cd /path/to/project
+dev-tools init
 ```
+
+`init`:
+
+- создает `.env.local` и обновляет Compose из example;
+- проверяет Docker;
+- клонирует и запускает `multifinger/droxy`, если Traefik еще не установлен;
+- создает SSL-сертификат и записи `/etc/hosts`;
+- скачивает dump, если настроен источник;
+- собирает и запускает контейнеры;
+- выполняет Composer, frontend build, cache clear и установку hook.
+
+Для проекта, ранее работавшего на хосте:
+
+```bash
+dev-tools init --migrate-from-host
+```
+
+Старый `.env.local` сохраняется как `.env.local.host-backup`, после чего
+создается Docker-конфигурация. Обычный `init` существующего Docker-проекта
+сохраняет `.env.local`, но синхронизирует генерируемый Compose-файл.
 
 ## Команды
 
-```text
-dev-tools cs:check [--mode=local|docker]
-dev-tools cs:fix [--mode=local|docker]
-dev-tools phpstan [path...] [--mode=local|docker]
-dev-tools hooks:install [--mode=local|docker]
+```bash
+dev-tools up
+dev-tools down
+dev-tools build
+dev-tools rebuild
+dev-tools ps
+dev-tools logs
+
+dev-tools sh
+dev-tools sh 'php bin/console cache:clear'
+
+dev-tools dump:download
+dev-tools dump:import
+
+dev-tools cs:check
+dev-tools cs:fix
+dev-tools phpstan
+dev-tools phpstan src/Foo.php src/Bar.php
+dev-tools hooks:install
 ```
 
-`cs:check` только показывает нарушения. `cs:fix` изменяет настроенные файлы.
-
-## Git hook
+`dev-tools sh` открывает login Zsh с Oh My Zsh. Вариант с одним аргументом
+выполняет команду через `zsh -lc` внутри `app`:
 
 ```bash
-vendor/bin/dev-tools hooks:install --mode=local
-# либо
-vendor/bin/dev-tools hooks:install --mode=docker
+dev-tools sh
+dev-tools sh 'php bin/console cache:clear'
 ```
 
-Hook копируется в `.git/hooks/pre-commit`, форматирует staged PHP-файлы и снова
-добавляет их в Git index. Если PHP-файл добавлен частично, после форматирования
-он станет полностью staged.
+Zsh является стандартной оболочкой. Для образа, который временно её не
+поддерживает, оболочку можно переопределить в `.env.local`:
 
-## Makefile
-
-Подключите общие цели:
-
-```make
--include vendor/it-nsk/dev-tools/make/dev-tools.mk
+```dotenv
+DEV_TOOLS_CONTAINER_SHELL=sh
 ```
 
-Доступные команды:
+Если настроенная оболочка отсутствует в `app`, команда завершится с понятной
+ошибкой. Это переопределение предназначено для миграции старых образов; новые
+проекты должны устанавливать Zsh и Oh My Zsh на этапе сборки.
+
+`dump:import` удаляет и создает заново только настроенную локальную БД.
+
+## Инструменты качества
+
+PHP CS Fixer проверяет `src` по общей конфигурации пакета.
+
+PHPStan автоматически использует проектный `phpstan.dist.neon`. Если файла нет,
+используется общая конфигурация и каталог `src`. Переданные пути ограничивают
+проверку указанными файлами.
+
+Git hook запускает форматирование staged PHP-файлов внутри Docker и повторно
+добавляет исправленные файлы в Git index.
+
+## Разработка и тесты
 
 ```bash
-make cs-check
-make cs-check-local
-make cs-check-docker
-make cs-fix
-make cs-fix-local
-make cs-fix-docker
-make phpstan
-make phpstan-local
-make phpstan-docker
-make phpstan-files FILES="src/Foo.php src/Bar.php"
-make hooks-local
-make hooks-docker
-```
-
-## Проектная конфигурация PHPStan
-
-Для baseline или проектных исключений укажите:
-
-```yaml
-phpstan:
-    config: phpstan.dist.neon
-```
-
-И подключите общий конфиг:
-
-```neon
-includes:
-    - vendor/it-nsk/dev-tools/config/phpstan.neon
-    - phpstan-baseline.neon
-```
-
-Не подключайте расширения Symfony и Doctrine повторно: они уже входят в общий
-конфиг.
-
-## Разработка
-
-```bash
-composer install
+composer validate --strict
 composer test
 composer test-docker-e2e
 composer test-dev-tools-global-e2e
 composer test-dev-tools-global-docker-e2e
 ```
 
-Local E2E создаёт временный Composer/Git-проект и проверяет fixer, PHPStan и
-hook. Docker E2E повторяет сценарий в PHP 8.3-контейнере и удаляет созданные
-ресурсы после завершения.
-
-Подробности:
-
-- [интеграция и настройки](docs/quality-tools.md);
-- [архитектура и назначение файлов](docs/architecture.md);
-
-## Глобальный Docker CLI
-
-Глобальный `dev-tools` устанавливается один раз и доступен до запуска Docker и
-`composer install`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/it-nsk/dev-scripts/ITNSK-37-docker-migration/install.sh | sh
-```
-
-По умолчанию бинарник устанавливается в `/usr/local/bin`. Общие команды:
-
-```bash
-dev-tools init
-dev-tools up
-dev-tools down
-dev-tools build
-dev-tools logs
-dev-tools shell
-dev-tools dump:download
-dev-tools dump:import
-dev-tools cs:check
-dev-tools phpstan
-dev-tools hooks:install
-dev-tools migrate
-dev-tools self-update
-```
-
-Уникальные настройки проекта задаются переменными `BGT_*` в `.env` и при
-необходимости переопределяются в `.env.local`. Dockerfile, конфигурация Nginx
-и `docker-compose.example.yml` остаются в репозитории проекта.
-
-## Лицензия
-
-[MIT](LICENSE)
+Подробности реализации находятся в
+[`docs/architecture.md`](docs/architecture.md) и
+[`docs/quality-tools.md`](docs/quality-tools.md).

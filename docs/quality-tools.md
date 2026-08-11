@@ -1,124 +1,54 @@
 # PHP CS Fixer, PHPStan и Git hooks
 
-## Конфигурация проекта
+Пакет подключается из Packagist:
 
-Минимальный `.dev-tools.yaml`:
-
-```yaml
-cs_fixer:
-    mode: local
-    paths: [src]
-    exclude: []
-
-phpstan:
-    mode: local
-    paths: [src]
-    memory_limit: 1G
-
-hooks:
-    mode: local
+```bash
+composer require --dev it-nsk/dev-tools:^0.2.0
 ```
 
-Для Docker задайте `mode: docker` и добавьте:
-
-```yaml
-docker:
-    command: [docker, compose]
-    service: app
-    env_files: [.env, .env.local]
-```
-
-В app-контейнере должны быть доступны PHP, Git, `vendor` и смонтированный
-проект вместе с `.git`.
+В рабочем процессе Composer запускается внутри Docker через `dev-tools init`
+или `dev-tools sh 'composer install'`.
 
 ## PHP CS Fixer
 
 ```bash
-make cs-check # выводит diff и ничего не изменяет
-make cs-fix   # форматирует файлы
-make cs-check-local
-make cs-check-docker
+dev-tools cs:check
+dev-tools cs:fix
 ```
 
-Общие правила находятся в
-`vendor/it-nsk/dev-tools/config/php-cs-fixer.php`. Пути и исключения задаются
-через `cs_fixer.paths` и `cs_fixer.exclude`.
-
-На legacy-проекте сначала выполните `make cs-check`. Массовое форматирование
-лучше вынести в отдельный commit без изменений логики.
+После первого подключения `cs:fix` запускается по всему `src`. Форматирование
+проверяется и сохраняется отдельным коммитом.
 
 ## PHPStan
 
 ```bash
-make phpstan
-make phpstan-local
-make phpstan-docker
-make phpstan-files FILES="src/Foo.php src/Bar.php"
+dev-tools phpstan
+dev-tools phpstan src/Service/Foo.php src/Controller/BarController.php
 ```
 
-Если проекту нужен baseline или собственные правила, укажите:
+Проектный `phpstan.dist.neon` используется автоматически. Старые ошибки
+фиксируются в `phpstan-baseline.neon`; новые ошибки в baseline не добавляются.
 
-```yaml
-phpstan:
-    config: phpstan.dist.neon
-```
+Создание baseline:
 
-А в `phpstan.dist.neon` подключите общий конфиг:
-
-```neon
-includes:
-    - vendor/it-nsk/dev-tools/config/phpstan.neon
-    - phpstan-baseline.neon
+```bash
+dev-tools sh \
+  'vendor/bin/phpstan analyse -c phpstan.dist.neon --generate-baseline'
 ```
 
 ## Git hook
 
 ```bash
-make hooks-local
-# либо
-make hooks-docker
+dev-tools hooks:install
 ```
 
-Команда копирует `.git/hooks/pre-commit`, а не создаёт symlink на `vendor`.
-Hook выбирает staged PHP-файлы, исправляет их и повторно добавляет в Git index.
-PHP CS Fixer форматирует файл целиком, поэтому частично staged PHP-файл после
-hook станет полностью staged.
+Hook находится на хосте в `.git/hooks/pre-commit`, но запускает
+`vendor/bin/dev-tools cs:fix-staged` внутри `app`-контейнера. PHP на хосте
+не требуется.
 
-Проверка без создания commit:
+Перед PR:
 
 ```bash
-git add src/SomeFile.php
-.git/hooks/pre-commit
-git diff --cached --check
-git diff --cached
+dev-tools cs:check
+dev-tools phpstan
 ```
-
-## Локальная интеграция через path repository
-
-Если библиотека находится рядом с проектом:
-
-```text
-/path/to/dev-tools
-/path/to/your-project
-```
-
-в каталоге проекта выполните:
-
-```bash
-composer config repositories.dev-tools \
-  '{"type":"path","url":"../dev-scripts","options":{"symlink":true}}'
-composer require --dev it-nsk/dev-tools:@dev
-```
-
-Проверьте подключение:
-
-```bash
-readlink -f vendor/it-nsk/dev-tools
-vendor/bin/dev-tools help
-make cs-check
-make phpstan
-```
-
-`readlink` должен вывести путь локального checkout библиотеки. `cs-check`
-возвращает ненулевой код, если нашёл нарушения — это нормальный результат до
-запуска `cs-fix`.
