@@ -25,12 +25,18 @@ DEV_TOOLS_PROJECT_DIR="$TMP/project" "$ROOT/bin/dev-tools-global" help | grep -q
 
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_DIR="$TMP/bin" \
+DEV_TOOLS_COMPLETION_DIR="$TMP/completions" \
     "$ROOT/install.sh"
 "$TMP/bin/dev-tools" version | grep -qx "$CURRENT_VERSION"
+"$TMP/bin/dev-tools" completion zsh >"$TMP/generated-completion"
+test -f "$TMP/completions/_dev-tools"
+grep -q '^#compdef dev-tools$' "$TMP/completions/_dev-tools"
+cmp "$TMP/generated-completion" "$TMP/completions/_dev-tools"
 
 DEV_TOOLS_PROJECT_DIR="$TMP/project" \
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools" \
+DEV_TOOLS_COMPLETION_DIR="$TMP/completions" \
     "$TMP/bin/dev-tools" self-update | grep -q 'already up to date'
 
 sed "s/DEV_TOOLS_VERSION='$CURRENT_VERSION'/DEV_TOOLS_VERSION='0.0.0'/" \
@@ -38,8 +44,10 @@ sed "s/DEV_TOOLS_VERSION='$CURRENT_VERSION'/DEV_TOOLS_VERSION='0.0.0'/" \
 chmod +x "$TMP/bin/dev-tools-old"
 DEV_TOOLS_UPDATE_URL="file://$ROOT/bin/dev-tools-global" \
 DEV_TOOLS_INSTALL_PATH="$TMP/bin/dev-tools-old" \
+DEV_TOOLS_COMPLETION_DIR="$TMP/completions" \
     "$TMP/bin/dev-tools-old" self-update | grep -q "Updated dev-tools: 0.0.0 -> $CURRENT_VERSION"
 "$TMP/bin/dev-tools-old" version | grep -qx "$CURRENT_VERSION"
+"$TMP/bin/dev-tools-old" completion zsh | cmp - "$TMP/completions/_dev-tools"
 
 cat >"$TMP/bin/docker" <<'EOF'
 #!/bin/sh

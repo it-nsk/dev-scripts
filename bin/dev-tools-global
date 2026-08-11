@@ -2,7 +2,7 @@
 
 set -eu
 
-DEV_TOOLS_VERSION='0.2.1'
+DEV_TOOLS_VERSION='0.2.2'
 DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/dev-tools-global'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -290,17 +290,92 @@ init_project()
     printf 'Project initialized. Domains: %s\n' "$DOMAINS"
 }
 
+install_completion()
+{
+    source=$1
+    directory=$2
+    if [ ! -d "$directory" ]; then
+        mkdir -p "$directory" 2>/dev/null \
+            || { has sudo && sudo mkdir -p "$directory"; } \
+            || fail "Cannot create completion directory $directory"
+    fi
+    if [ -w "$directory" ]; then
+        install -m 0644 "$source" "$directory/_dev-tools"
+    elif has sudo; then
+        sudo install -m 0644 "$source" "$directory/_dev-tools"
+    else
+        fail "Cannot install Zsh completion to $directory"
+    fi
+}
+
+completion_zsh()
+{
+    cat <<'EOF'
+#compdef dev-tools
+
+local -a commands
+commands=(
+    'init:initialize the project'
+    'up:start project containers'
+    'down:stop project containers'
+    'build:build container images'
+    'rebuild:rebuild and start the application container'
+    'logs:follow container logs'
+    'ps:show project containers'
+    'sh:open Zsh or run a command in the application container'
+    'compose:run Docker Compose with arbitrary arguments'
+    'dump\:download:download the latest database dump'
+    'dump\:import:import the database dump'
+    'cs\:check:check PHP code style'
+    'cs\:fix:fix PHP code style'
+    'phpstan:run PHPStan'
+    'hooks\:install:install Git hooks'
+    'self-update:update the global dev-tools command'
+    'version:print the installed version'
+    'help:show command help'
+)
+
+if (( CURRENT == 2 )); then
+    _describe 'dev-tools command' commands
+    return
+fi
+
+case $words[2] in
+    init)
+        _arguments '--migrate-from-host[replace host settings with Docker settings]'
+        ;;
+    build|compose)
+        _message 'Docker Compose arguments'
+        ;;
+    logs)
+        _message 'Docker Compose service'
+        ;;
+    phpstan)
+        _files
+        ;;
+    sh)
+        _message 'command to execute in the application container'
+        ;;
+esac
+EOF
+}
+
 self_update()
 {
     has curl || fail 'curl is required for self-update'
     url=${DEV_TOOLS_UPDATE_URL:-$DEV_TOOLS_UPDATE_URL_DEFAULT}
     destination=${DEV_TOOLS_INSTALL_PATH:-$0}
     tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools.XXXXXX")
-    trap 'rm -f "$tmp"' EXIT HUP INT TERM
+    trap 'rm -f "$tmp" "${completion_tmp:-}"' EXIT HUP INT TERM
     curl -fsSL "$url" -o "$tmp"
     chmod +x "$tmp"
     new_version=$("$tmp" version 2>/dev/null) || fail 'Downloaded file is not a valid dev-tools binary'
+    completion_dir=${DEV_TOOLS_COMPLETION_DIR:-/usr/local/share/zsh/site-functions}
+    completion_tmp=$(mktemp "${TMPDIR:-/tmp}/dev-tools-completion.XXXXXX")
+    "$tmp" completion zsh >"$completion_tmp"
     if [ "$new_version" = "$DEV_TOOLS_VERSION" ]; then
+        install_completion "$completion_tmp" "$completion_dir"
+        rm -f "$completion_tmp"
         printf 'dev-tools is already up to date (%s)\n' "$DEV_TOOLS_VERSION"
         return
     fi
@@ -311,6 +386,8 @@ self_update()
     else
         fail "Cannot replace $destination"
     fi
+    install_completion "$completion_tmp" "$completion_dir"
+    rm -f "$completion_tmp"
     trap - EXIT HUP INT TERM
     printf 'Updated dev-tools: %s -> %s\n' "$DEV_TOOLS_VERSION" "$new_version"
 }
@@ -327,6 +404,7 @@ Usage:
   dev-tools compose <arguments...>
   dev-tools dump:download|dump:import
   dev-tools cs:check|cs:fix|phpstan|hooks:install
+  dev-tools completion zsh
   dev-tools self-update
   dev-tools version
 EOF
@@ -337,6 +415,13 @@ command=${1:-help}
 if [ "$#" -gt 0 ]; then shift; fi
 case "$command" in version|--version|-V) printf '%s\n' "$DEV_TOOLS_VERSION"; exit 0 ;; esac
 case "$command" in help|--help|-h) help; exit 0 ;; esac
+case "$command" in
+    completion)
+        [ "$#" -eq 1 ] && [ "$1" = zsh ] || fail 'Use: dev-tools completion zsh'
+        completion_zsh
+        exit 0
+        ;;
+esac
 case "$command" in self-update) self_update; exit 0 ;; esac
 require_project
 if [ "$command" = init ] && [ "${1:-}" = "--migrate-from-host" ]; then
