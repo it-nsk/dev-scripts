@@ -2,7 +2,7 @@
 
 set -eu
 
-DEV_TOOLS_VERSION='0.2.2'
+DEV_TOOLS_VERSION='0.2.3'
 DEV_TOOLS_UPDATE_URL_DEFAULT='https://raw.githubusercontent.com/it-nsk/dev-scripts/dev/bin/dev-tools-global'
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -248,6 +248,12 @@ composer_exec()
         "$APP_SERVICE" composer "$@"
 }
 
+deploy_project()
+{
+    [ -x "$PROJECT_DIR/bin/deploy.sh" ] || fail 'bin/deploy.sh not found or is not executable'
+    project_exec bin/deploy.sh
+}
+
 check_composer_ssh()
 {
     [ -n "$COMPOSER_SSH_HOST" ] || return 0
@@ -401,6 +407,7 @@ Usage:
   dev-tools init [--migrate-from-host]
   dev-tools up|down|build|rebuild|logs|ps
   dev-tools sh ["command"]
+  dev-tools deploy
   dev-tools compose <arguments...>
   dev-tools dump:download|dump:import
   dev-tools cs:check|cs:fix|phpstan|hooks:install
@@ -468,6 +475,7 @@ case "$command" in
     logs) check_docker; ensure_compose_file; compose logs -f "${1:-$APP_SERVICE}" ;;
     sh) check_docker; ensure_compose_file; project_shell "$@" ;;
     ps) check_docker; ensure_compose_file; compose ps ;;
+    deploy) check_docker; ensure_compose_file; deploy_project ;;
     compose) check_docker; ensure_compose_file; compose "$@" ;;
     dump:download) dump_download ;;
     dump:import) check_docker; ensure_compose_file; dump_import ;;
